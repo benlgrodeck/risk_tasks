@@ -1,0 +1,58 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}
+    BRET — Results
+{% endblock %}
+
+{% block content %}
+    <div style="max-width: 600px; margin: 0 auto;">
+        <h4>Your Results</h4>
+
+        <table class="simple_table">
+            <tbody>
+                <tr>
+                    <td><strong>Boxes Collected</strong></td>
+                    <td>{{ boxes_collected }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Bomb Location</strong></td>
+                    <td>Box {{ bomb_location }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Outcome</strong></td>
+                    <td>
+                        {% if bomb_hit %}
+                            <span style="color: #c0392b; font-weight: bold;">
+                                You hit the bomb!
+                            </span>
+                        {% else %}
+                            <span style="color: #27ae60; font-weight: bold;">
+                                Safe! You avoided the bomb.
+                            </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Points Earned</strong></td>
+                    <td style="font-size: 20px; font-weight: bold;">
+                        {{ earnings }} points
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p style="margin-top: 20px; color: #7f8c8d;">
+            Each box was worth {{ points_per_box }} points.
+            {% if not bomb_hit %}
+                You collected {{ boxes_collected }} boxes &times; {{ points_per_box }} points = {{ earnings }} points.
+            {% else %}
+                The bomb was in box {{ bomb_location }}, so you lost all points.
+            {% endif %}
+        </p>
+
+        <p>Thank you for completing the Bomb Risk Elicitation Task!</p>
+    </div>
+
+    {% next_button %}
+{% endblock %}

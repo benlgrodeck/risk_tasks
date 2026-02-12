@@ -1,0 +1,298 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}
+    Balloon {{ player.round_number }} of {{ Constants.num_rounds }}
+{% endblock %}
+
+{% block styles %}
+<style>
+    .bart-container {
+        text-align: center;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    .balloon-area {
+        position: relative;
+        height: 320px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+    }
+    .balloon {
+        width: 80px;
+        height: 100px;
+        background: radial-gradient(circle at 35% 35%, #ff6b6b, #c0392b);
+        border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+        position: relative;
+        transition: width 0.15s ease, height 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .balloon::after {
+        content: '';
+        position: absolute;
+        bottom: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 14px solid #c0392b;
+    }
+    .balloon-string {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 60px;
+        background: #666;
+    }
+    .balloon-label {
+        color: white;
+        font-weight: bold;
+        font-size: 18px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        z-index: 1;
+    }
+    .pop-text {
+        font-size: 48px;
+        color: #c0392b;
+        font-weight: bold;
+        display: none;
+    }
+    .stats-bar {
+        display: flex;
+        justify-content: space-around;
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 12px;
+        margin: 16px 0;
+        font-size: 15px;
+    }
+    .stats-bar .stat {
+        text-align: center;
+    }
+    .stats-bar .stat-value {
+        font-size: 22px;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+    .stats-bar .stat-label {
+        color: #7f8c8d;
+        font-size: 12px;
+    }
+    .btn-pump {
+        background: #27ae60;
+        color: white;
+        border: none;
+        padding: 14px 40px;
+        font-size: 18px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin: 8px;
+        transition: background 0.2s;
+    }
+    .btn-pump:hover { background: #219a52; }
+    .btn-pump:disabled { background: #95a5a6; cursor: not-allowed; }
+    .btn-collect {
+        background: #f39c12;
+        color: white;
+        border: none;
+        padding: 14px 40px;
+        font-size: 18px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin: 8px;
+        transition: background 0.2s;
+    }
+    .btn-collect:hover { background: #d68910; }
+    .btn-collect:disabled { background: #95a5a6; cursor: not-allowed; }
+    .buttons-area {
+        margin: 16px 0;
+    }
+    .outcome-message {
+        font-size: 22px;
+        font-weight: bold;
+        margin: 16px 0;
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bart-container">
+    <div class="stats-bar">
+        <div class="stat">
+            <div class="stat-value" id="pumpCount">0</div>
+            <div class="stat-label">Pumps</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="balloonValue">$0.00</div>
+            <div class="stat-label">This Balloon</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value">${{ total_banked }}</div>
+            <div class="stat-label">Total Banked</div>
+        </div>
+    </div>
+
+    <div class="balloon-area">
+        <div class="balloon-string"></div>
+        <div class="balloon" id="balloon">
+            <span class="balloon-label" id="balloonPumps"></span>
+        </div>
+        <div class="pop-text" id="popText">POP!</div>
+    </div>
+
+    <div class="buttons-area">
+        <button class="btn-pump" id="btnPump" type="button">Pump</button>
+        <button class="btn-collect" id="btnCollect" type="button">Collect $$$</button>
+    </div>
+
+    <div class="outcome-message" id="outcomeMsg"></div>
+
+    <form id="form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="pumps" id="id_pumps" value="0">
+        <input type="hidden" name="popped" id="id_popped" value="False">
+    </form>
+</div>
+
+{% block scripts %}
+<script>
+    (function() {
+        const maxPumps = {{ max_pumps }};
+        const pumpValue = {{ pump_value }};
+        let pumps = 0;
+        let popped = false;
+        let finished = false;
+
+        // Determine random pop point: uniform 1..maxPumps
+        const popPoint = Math.floor(Math.random() * maxPumps) + 1;
+
+        const balloon = document.getElementById('balloon');
+        const popText = document.getElementById('popText');
+        const pumpCountEl = document.getElementById('pumpCount');
+        const balloonValueEl = document.getElementById('balloonValue');
+        const balloonPumpsEl = document.getElementById('balloonPumps');
+        const btnPump = document.getElementById('btnPump');
+        const btnCollect = document.getElementById('btnCollect');
+        const outcomeMsg = document.getElementById('outcomeMsg');
+
+        // Web Audio API for sounds
+        let audioCtx;
+        function getAudioCtx() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            return audioCtx;
+        }
+        function playPumpSound() {
+            try {
+                const ctx = getAudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.setValueAtTime(300 + pumps * 8, ctx.currentTime);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.1);
+            } catch(e) {}
+        }
+        function playPopSound() {
+            try {
+                const ctx = getAudioCtx();
+                const bufferSize = ctx.sampleRate * 0.3;
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+                }
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                source.connect(gain);
+                gain.connect(ctx.destination);
+                source.start();
+            } catch(e) {}
+        }
+        function playCollectSound() {
+            try {
+                const ctx = getAudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523, ctx.currentTime);
+                osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+                osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.4);
+            } catch(e) {}
+        }
+
+        function updateDisplay() {
+            pumpCountEl.textContent = pumps;
+            balloonValueEl.textContent = '$' + (pumps * pumpValue).toFixed(2);
+            balloonPumpsEl.textContent = pumps;
+            // Grow balloon: base 80x100, grow by ~3px per pump
+            const w = 80 + pumps * 3;
+            const h = 100 + pumps * 3.5;
+            balloon.style.width = w + 'px';
+            balloon.style.height = h + 'px';
+        }
+
+        function endRound() {
+            finished = true;
+            btnPump.disabled = true;
+            btnCollect.disabled = true;
+            document.getElementById('id_pumps').value = pumps;
+            document.getElementById('id_popped').value = popped ? 'True' : 'False';
+            setTimeout(function() {
+                document.getElementById('form').submit();
+            }, 1500);
+        }
+
+        btnPump.addEventListener('click', function() {
+            if (finished) return;
+            pumps++;
+            if (pumps >= popPoint) {
+                // Popped!
+                popped = true;
+                playPopSound();
+                balloon.style.display = 'none';
+                popText.style.display = 'block';
+                outcomeMsg.style.display = 'block';
+                outcomeMsg.style.color = '#c0392b';
+                outcomeMsg.textContent = 'The balloon popped! You earned $0.00 this round.';
+                updateDisplay();
+                balloonValueEl.textContent = '$0.00';
+                endRound();
+            } else {
+                playPumpSound();
+                updateDisplay();
+            }
+        });
+
+        btnCollect.addEventListener('click', function() {
+            if (finished || pumps === 0) return;
+            playCollectSound();
+            outcomeMsg.style.display = 'block';
+            outcomeMsg.style.color = '#27ae60';
+            outcomeMsg.textContent = 'You collected $' + (pumps * pumpValue).toFixed(2) + '!';
+            endRound();
+        });
+
+        updateDisplay();
+    })();
+</script>
+{% endblock %}
+{% endblock %}
