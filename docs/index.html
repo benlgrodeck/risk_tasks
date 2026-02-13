@@ -216,14 +216,22 @@
         results.style.display = 'block';
     }
 
+    let boomVideoTimer = null;
     function showBoomVideo() {
         const overlay = document.getElementById('videoOverlay');
         const wrapper = document.getElementById('videoWrapper');
-        // YouTube embed: first 12 seconds of "We Bring The Boom"
-        wrapper.innerHTML = '<iframe src="https://www.youtube.com/embed/btnZ-segFG0?autoplay=1&start=0&end=12" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+        // YouTube embed: first 12 seconds, then pause via API
+        wrapper.innerHTML = '<iframe id="ytPlayer" src="https://www.youtube.com/embed/btnZ-segFG0?autoplay=1&start=0&enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
         setTimeout(function() { overlay.classList.add('active'); }, 400);
 
+        // Stop video after 12 seconds by sending pause command
+        boomVideoTimer = setTimeout(function() {
+            var iframe = document.getElementById('ytPlayer');
+            if (iframe) iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+        }, 12000);
+
         document.getElementById('continueBtn').addEventListener('click', function() {
+            clearTimeout(boomVideoTimer);
             overlay.classList.remove('active');
             wrapper.innerHTML = '';
             showResults(true);
@@ -250,7 +258,6 @@
                 finished = true;
                 box.textContent = '\uD83D\uDCA3';
                 box.classList.add('bomb-revealed');
-                playBomb();
                 btnCollect.disabled = true;
                 document.querySelectorAll('.box').forEach(function(b) { b.classList.add('disabled'); });
                 boxesOpenedEl.textContent = boxesOpened;
