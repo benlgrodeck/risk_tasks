@@ -97,11 +97,8 @@
             to { transform: translateX(3px) rotate(1deg); }
         }
         .video-overlay .video-wrapper {
-            max-width: 560px; width: 90%; aspect-ratio: 16/9;
+            max-width: 560px; width: 90%;
             border-radius: 12px; overflow: hidden;
-        }
-        .video-overlay .video-wrapper iframe {
-            width: 100%; height: 100%; border: none;
         }
         .video-overlay .continue-btn {
             margin-top: 24px; background: #c0392b; color: white; border: none;
@@ -216,22 +213,22 @@
         results.style.display = 'block';
     }
 
-    let boomVideoTimer = null;
     function showBoomVideo() {
         const overlay = document.getElementById('videoOverlay');
         const wrapper = document.getElementById('videoWrapper');
-        // YouTube embed: first 12 seconds, then pause via API
-        wrapper.innerHTML = '<iframe id="ytPlayer" src="https://www.youtube.com/embed/btnZ-segFG0?autoplay=1&start=0&enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+        wrapper.innerHTML = '<video id="boomVideo" autoplay playsinline style="width:100%;border-radius:12px;"><source src="boom.mp4" type="video/mp4"></video>';
         setTimeout(function() { overlay.classList.add('active'); }, 400);
 
-        // Stop video after 12 seconds by sending pause command
-        boomVideoTimer = setTimeout(function() {
-            var iframe = document.getElementById('ytPlayer');
-            if (iframe) iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
-        }, 12000);
+        var vid = document.getElementById('boomVideo');
+        vid.addEventListener('ended', function() {
+            // Auto-continue after video ends
+            overlay.classList.remove('active');
+            wrapper.innerHTML = '';
+            showResults(true);
+        });
 
         document.getElementById('continueBtn').addEventListener('click', function() {
-            clearTimeout(boomVideoTimer);
+            vid.pause();
             overlay.classList.remove('active');
             wrapper.innerHTML = '';
             showResults(true);
