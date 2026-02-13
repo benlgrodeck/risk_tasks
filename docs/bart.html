@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BART — Balloon Analogue Risk Task</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+        .page { max-width: 600px; margin: 0 auto; padding: 20px; }
+
+        /* Instructions */
+        #instructions { text-align: center; }
+        #instructions h1 { font-size: 28px; color: #2c3e50; margin-bottom: 16px; }
+        #instructions p { color: #555; line-height: 1.6; margin-bottom: 12px; text-align: left; }
+        .tip-box {
+            background: #eaf4fe; border-left: 4px solid #3498db;
+            padding: 12px 16px; margin: 20px 0; text-align: left;
+        }
+        .start-btn {
+            background: #27ae60; color: white; border: none;
+            padding: 16px 48px; font-size: 18px; border-radius: 10px;
+            cursor: pointer; margin-top: 20px;
+        }
+        .start-btn:hover { background: #219a52; }
+
+        /* Game */
+        #game { display: none; text-align: center; }
+        .stats-bar {
+            display: flex; justify-content: space-around;
+            background: white; border-radius: 12px; padding: 14px;
+            margin: 16px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .stat-value { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        .stat-label { color: #7f8c8d; font-size: 12px; }
+        .balloon-area {
+            position: relative; height: 340px;
+            display: flex; align-items: flex-end; justify-content: center;
+        }
+        .balloon {
+            width: 80px; height: 100px;
+            background: radial-gradient(circle at 35% 35%, #ff6b6b, #c0392b);
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            position: relative; transition: width 0.15s ease, height 0.15s ease;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .balloon::after {
+            content: ''; position: absolute; bottom: -12px; left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent; border-right: 8px solid transparent;
+            border-top: 14px solid #c0392b;
+        }
+        .balloon-string {
+            position: absolute; bottom: 0; left: 50%;
+            transform: translateX(-50%); width: 2px; height: 60px; background: #999;
+        }
+        .balloon-label {
+            color: white; font-weight: bold; font-size: 18px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3); z-index: 1;
+        }
+        .pop-text {
+            font-size: 52px; color: #c0392b; font-weight: bold; display: none;
+        }
+        .buttons-area { margin: 16px 0; }
+        .btn-pump, .btn-collect {
+            border: none; padding: 14px 40px; font-size: 18px;
+            border-radius: 10px; cursor: pointer; margin: 6px;
+            color: white; transition: background 0.2s;
+        }
+        .btn-pump { background: #27ae60; }
+        .btn-pump:hover { background: #219a52; }
+        .btn-collect { background: #f39c12; }
+        .btn-collect:hover { background: #d68910; }
+        .btn-pump:disabled, .btn-collect:disabled { background: #95a5a6; cursor: not-allowed; }
+        .outcome-message {
+            font-size: 22px; font-weight: bold; margin: 16px 0; min-height: 30px;
+        }
+
+        /* Round transition */
+        #roundTransition {
+            display: none; text-align: center; padding-top: 80px;
+        }
+        #roundTransition h2 { font-size: 28px; color: #2c3e50; margin-bottom: 16px; }
+        #roundTransition .round-result { font-size: 20px; margin-bottom: 24px; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <!-- Instructions -->
+    <div id="instructions">
+        <h1>Balloon Analogue Risk Task</h1>
+        <p>You will see <strong>3 balloons</strong>, one at a time. For each balloon, you can pump it up to earn money.</p>
+        <p>Each pump adds <strong>$0.05</strong> to your potential earnings for that balloon. But be careful — each pump also increases the chance that the balloon will <strong>pop</strong>!</p>
+        <p>If the balloon pops, you lose all the money for <em>that</em> balloon. Click <strong>"Collect $$$"</strong> before it pops to keep the money.</p>
+        <p>The balloon can pop at any point up to pump 64. The risk increases with each pump.</p>
+        <div class="tip-box"><strong>Strategy:</strong> Balance risk and reward. More pumps = more money, but more risk!</div>
+        <button class="start-btn" id="startBtn">Start</button>
+    </div>
+
+    <!-- Game -->
+    <div id="game">
+        <h2 id="roundTitle" style="color:#2c3e50; margin-bottom: 8px;"></h2>
+        <div class="stats-bar">
+            <div class="stat"><div class="stat-value" id="pumpCount">0</div><div class="stat-label">Pumps</div></div>
+            <div class="stat"><div class="stat-value" id="balloonValue">$0.00</div><div class="stat-label">This Balloon</div></div>
+            <div class="stat"><div class="stat-value" id="totalBanked">$0.00</div><div class="stat-label">Total Banked</div></div>
+        </div>
+        <div class="balloon-area">
+            <div class="balloon-string"></div>
+            <div class="balloon" id="balloon"><span class="balloon-label" id="balloonPumps"></span></div>
+            <div class="pop-text" id="popText">POP!</div>
+        </div>
+        <div class="buttons-area">
+            <button class="btn-pump" id="btnPump">Pump</button>
+            <button class="btn-collect" id="btnCollect">Collect $$$</button>
+        </div>
+        <div class="outcome-message" id="outcomeMsg"></div>
+    </div>
+
+    <!-- Round transition -->
+    <div id="roundTransition">
+        <h2 id="transTitle"></h2>
+        <div class="round-result" id="transResult"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const NUM_ROUNDS = 3;
+    const MAX_PUMPS = 64;
+    const PUMP_VALUE = 0.05;
+
+    let currentRound = 0;
+    let pumps = 0;
+    let popped = false;
+    let finished = false;
+    let popPoint = 0;
+    let totalBanked = 0;
+    const results = [];
+
+    // Audio
+    let audioCtx;
+    function ctx() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        return audioCtx;
+    }
+    function playPump() {
+        try { const c=ctx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.setValueAtTime(300+pumps*8,c.currentTime);g.gain.setValueAtTime(.15,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.1);o.start(c.currentTime);o.stop(c.currentTime+.1); } catch(e){}
+    }
+    function playPop() {
+        try { const c=ctx(),n=c.sampleRate*.3,b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2);const s=c.createBufferSource();s.buffer=b;const g=c.createGain();g.gain.setValueAtTime(.4,c.currentTime);s.connect(g);g.connect(c.destination);s.start(); } catch(e){}
+    }
+    function playCollect() {
+        try { const c=ctx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.setValueAtTime(523,c.currentTime);o.frequency.setValueAtTime(659,c.currentTime+.1);o.frequency.setValueAtTime(784,c.currentTime+.2);g.gain.setValueAtTime(.2,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.4);o.start(c.currentTime);o.stop(c.currentTime+.4); } catch(e){}
+    }
+
+    const els = {
+        instructions: document.getElementById('instructions'),
+        game: document.getElementById('game'),
+        roundTransition: document.getElementById('roundTransition'),
+        roundTitle: document.getElementById('roundTitle'),
+        pumpCount: document.getElementById('pumpCount'),
+        balloonValue: document.getElementById('balloonValue'),
+        totalBanked: document.getElementById('totalBanked'),
+        balloon: document.getElementById('balloon'),
+        popText: document.getElementById('popText'),
+        balloonPumps: document.getElementById('balloonPumps'),
+        btnPump: document.getElementById('btnPump'),
+        btnCollect: document.getElementById('btnCollect'),
+        outcomeMsg: document.getElementById('outcomeMsg'),
+        transTitle: document.getElementById('transTitle'),
+        transResult: document.getElementById('transResult'),
+    };
+
+    function updateDisplay() {
+        els.pumpCount.textContent = pumps;
+        els.balloonValue.textContent = '$' + (pumps * PUMP_VALUE).toFixed(2);
+        els.totalBanked.textContent = '$' + totalBanked.toFixed(2);
+        els.balloonPumps.textContent = pumps;
+        els.balloon.style.width = (80 + pumps * 3) + 'px';
+        els.balloon.style.height = (100 + pumps * 3.5) + 'px';
+    }
+
+    function startRound() {
+        currentRound++;
+        pumps = 0;
+        popped = false;
+        finished = false;
+        popPoint = Math.floor(Math.random() * MAX_PUMPS) + 1;
+
+        els.roundTransition.style.display = 'none';
+        els.game.style.display = 'block';
+        els.roundTitle.textContent = 'Balloon ' + currentRound + ' of ' + NUM_ROUNDS;
+        els.balloon.style.display = 'flex';
+        els.balloon.style.width = '80px';
+        els.balloon.style.height = '100px';
+        els.popText.style.display = 'none';
+        els.btnPump.disabled = false;
+        els.btnCollect.disabled = false;
+        els.outcomeMsg.textContent = '';
+        updateDisplay();
+    }
+
+    function endRound(earnedThisRound) {
+        results.push({ round: currentRound, pumps: pumps, popped: popped, earnings: earnedThisRound });
+
+        if (currentRound >= NUM_ROUNDS) {
+            // Save and redirect
+            sessionStorage.setItem('bartResults', JSON.stringify({ rounds: results, total: totalBanked }));
+            const params = new URLSearchParams(window.location.search);
+            const next = params.get('next');
+            setTimeout(function() {
+                window.location.href = next === 'bret' ? 'bret.html' : 'results.html';
+            }, 1500);
+        } else {
+            // Show transition
+            setTimeout(function() {
+                els.game.style.display = 'none';
+                els.roundTransition.style.display = 'block';
+                if (popped) {
+                    els.transTitle.textContent = 'Balloon ' + currentRound + ' popped!';
+                    els.transResult.innerHTML = 'You earned <strong style="color:#c0392b;">$0.00</strong> that round.<br>Total banked: <strong>$' + totalBanked.toFixed(2) + '</strong>';
+                } else {
+                    els.transTitle.textContent = 'Balloon ' + currentRound + ' collected!';
+                    els.transResult.innerHTML = 'You earned <strong style="color:#27ae60;">$' + earnedThisRound.toFixed(2) + '</strong> that round.<br>Total banked: <strong>$' + totalBanked.toFixed(2) + '</strong>';
+                }
+                setTimeout(startRound, 2000);
+            }, 1200);
+        }
+    }
+
+    els.btnPump.addEventListener('click', function() {
+        if (finished) return;
+        pumps++;
+        if (pumps >= popPoint) {
+            popped = true;
+            finished = true;
+            playPop();
+            els.balloon.style.display = 'none';
+            els.popText.style.display = 'block';
+            els.btnPump.disabled = true;
+            els.btnCollect.disabled = true;
+            els.outcomeMsg.style.color = '#c0392b';
+            els.outcomeMsg.textContent = 'The balloon popped! $0.00 this round.';
+            updateDisplay();
+            els.balloonValue.textContent = '$0.00';
+            endRound(0);
+        } else {
+            playPump();
+            updateDisplay();
+        }
+    });
+
+    els.btnCollect.addEventListener('click', function() {
+        if (finished || pumps === 0) return;
+        finished = true;
+        const earned = pumps * PUMP_VALUE;
+        totalBanked += earned;
+        playCollect();
+        els.btnPump.disabled = true;
+        els.btnCollect.disabled = true;
+        els.outcomeMsg.style.color = '#27ae60';
+        els.outcomeMsg.textContent = 'Collected $' + earned.toFixed(2) + '!';
+        updateDisplay();
+        endRound(earned);
+    });
+
+    document.getElementById('startBtn').addEventListener('click', function() {
+        els.instructions.style.display = 'none';
+        startRound();
+    });
+})();
+</script>
+</body>
+</html>

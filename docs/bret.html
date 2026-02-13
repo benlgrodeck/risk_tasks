@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRET — Bomb Risk Elicitation Task</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+        .page { max-width: 550px; margin: 0 auto; padding: 20px; }
+
+        /* Instructions */
+        #instructions { text-align: center; }
+        #instructions h1 { font-size: 28px; color: #2c3e50; margin-bottom: 16px; }
+        #instructions p { color: #555; line-height: 1.6; margin-bottom: 12px; text-align: left; }
+        .tip-box {
+            background: #eaf4fe; border-left: 4px solid #3498db;
+            padding: 12px 16px; margin: 20px 0; text-align: left;
+        }
+        .start-btn {
+            background: #2980b9; color: white; border: none;
+            padding: 16px 48px; font-size: 18px; border-radius: 10px;
+            cursor: pointer; margin-top: 20px;
+        }
+        .start-btn:hover { background: #2471a3; }
+
+        /* Game */
+        #game { display: none; text-align: center; }
+        .stats-bar {
+            display: flex; justify-content: space-around;
+            background: white; border-radius: 12px; padding: 14px;
+            margin: 16px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .stat-value { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        .stat-label { color: #7f8c8d; font-size: 12px; }
+        .grid {
+            display: grid; grid-template-columns: repeat(5, 1fr);
+            gap: 8px; max-width: 400px; margin: 20px auto;
+        }
+        .box {
+            width: 100%; aspect-ratio: 1;
+            border: 2px solid #bdc3c7; border-radius: 8px;
+            background: #ecf0f1; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: bold; color: #7f8c8d;
+            transition: all 0.2s; user-select: none;
+        }
+        .box:hover:not(.revealed):not(.disabled) { background: #d5dbdb; border-color: #95a5a6; }
+        .box.revealed { background: #d5f5e3; border-color: #27ae60; color: #27ae60; cursor: default; }
+        .box.bomb-revealed { background: #fadbd8; border-color: #c0392b; color: #c0392b; cursor: default; }
+        .box.disabled { cursor: default; opacity: 0.7; }
+        .btn-collect-pts {
+            background: #f39c12; color: white; border: none;
+            padding: 14px 40px; font-size: 18px; border-radius: 10px;
+            cursor: pointer; margin: 16px 0;
+        }
+        .btn-collect-pts:hover { background: #d68910; }
+        .btn-collect-pts:disabled { background: #95a5a6; cursor: not-allowed; }
+        .outcome-message { font-size: 22px; font-weight: bold; margin: 16px 0; min-height: 30px; }
+
+        /* Video overlay */
+        .video-overlay {
+            display: none; position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9); z-index: 9999;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        .video-overlay.active { display: flex; }
+        .video-overlay h2 {
+            color: #ff4444; font-size: 36px; margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            animation: shake 0.5s ease-in-out infinite alternate;
+        }
+        @keyframes shake {
+            from { transform: translateX(-3px) rotate(-1deg); }
+            to { transform: translateX(3px) rotate(1deg); }
+        }
+        .video-overlay .tiktok-wrapper { max-width: 360px; width: 90%; }
+        .video-overlay .continue-btn {
+            margin-top: 24px; background: #c0392b; color: white; border: none;
+            padding: 14px 40px; font-size: 16px; border-radius: 10px; cursor: pointer;
+        }
+        .video-overlay .continue-btn:hover { background: #a93226; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <!-- Instructions -->
+    <div id="instructions">
+        <h1>Bomb Risk Elicitation Task</h1>
+        <p>You will see a grid of <strong>25 boxes</strong> (5 x 5). One of these boxes contains a <strong>bomb</strong> — but you won't know which one!</p>
+        <p>Click on boxes to collect them. Each collected box is worth <strong>10 points</strong>.</p>
+        <p>However, if you click on the box that contains the bomb, you lose <strong>all</strong> of your collected points.</p>
+        <p>You can stop collecting at any time by pressing <strong>"Collect Points"</strong>. The bomb location will then be revealed.</p>
+        <div class="tip-box"><strong>Strategy:</strong> The more boxes you open, the more points — but also more risk of hitting the bomb!</div>
+        <button class="start-btn" id="startBtn">Start</button>
+    </div>
+
+    <!-- Game -->
+    <div id="game">
+        <h2 style="color:#2c3e50; margin-bottom: 8px;">Bomb Risk Elicitation Task</h2>
+        <div class="stats-bar">
+            <div class="stat"><div class="stat-value" id="boxesOpened">0</div><div class="stat-label">Boxes Opened</div></div>
+            <div class="stat"><div class="stat-value" id="potentialPts">0</div><div class="stat-label">Potential Points</div></div>
+        </div>
+        <div class="grid" id="grid"></div>
+        <button class="btn-collect-pts" id="btnCollect">Collect Points</button>
+        <div class="outcome-message" id="outcomeMsg"></div>
+    </div>
+</div>
+
+<!-- Video overlay -->
+<div class="video-overlay" id="videoOverlay">
+    <h2>WE BRING THE BOOM!</h2>
+    <div class="tiktok-wrapper" id="tiktokWrapper"></div>
+    <button class="continue-btn" id="continueBtn">Continue</button>
+</div>
+
+<script>
+(function() {
+    const NUM_BOXES = 25;
+    const POINTS_PER_BOX = 10;
+    const bombLocation = Math.floor(Math.random() * NUM_BOXES) + 1;
+
+    let boxesOpened = 0;
+    let finished = false;
+    const openedSet = new Set();
+
+    // Audio
+    let audioCtx;
+    function ctx() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        return audioCtx;
+    }
+    function playClick() {
+        try { const c=ctx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.setValueAtTime(600,c.currentTime);g.gain.setValueAtTime(.15,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.08);o.start(c.currentTime);o.stop(c.currentTime+.08); } catch(e){}
+    }
+    function playBomb() {
+        try { const c=ctx(),n=c.sampleRate*.5,b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,1.5);const s=c.createBufferSource();s.buffer=b;const g=c.createGain();g.gain.setValueAtTime(.5,c.currentTime);s.connect(g);g.connect(c.destination);s.start(); } catch(e){}
+    }
+    function playSuccess() {
+        try { const c=ctx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.setValueAtTime(523,c.currentTime);o.frequency.setValueAtTime(659,c.currentTime+.1);o.frequency.setValueAtTime(784,c.currentTime+.2);g.gain.setValueAtTime(.2,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.4);o.start(c.currentTime);o.stop(c.currentTime+.4); } catch(e){}
+    }
+
+    function saveAndRedirect(bombHit) {
+        const earnings = bombHit ? 0 : boxesOpened * POINTS_PER_BOX;
+        sessionStorage.setItem('bretResults', JSON.stringify({
+            boxesCollected: boxesOpened,
+            bombLocation: bombLocation,
+            bombHit: bombHit,
+            earnings: earnings
+        }));
+        window.location.href = 'results.html';
+    }
+
+    function showBoomVideo() {
+        const videos = [
+            '7420922312519601454',  // We Bring The BOOM Remix Part 1 (with Rizzler)
+            '7551550497992264974'   // Can We Get 5 BIG BOOMS
+        ];
+        const videoId = videos[Math.floor(Math.random() * videos.length)];
+        const overlay = document.getElementById('videoOverlay');
+        const wrapper = document.getElementById('tiktokWrapper');
+        wrapper.innerHTML = '<blockquote class="tiktok-embed" cite="https://www.tiktok.com/@a.j.befumo/video/' + videoId + '" data-video-id="' + videoId + '" style="max-width:360px; min-width:300px;"><section></section></blockquote>';
+        var s = document.createElement('script');
+        s.src = 'https://www.tiktok.com/embed.js';
+        s.async = true;
+        document.body.appendChild(s);
+        setTimeout(function() { overlay.classList.add('active'); }, 400);
+
+        document.getElementById('continueBtn').addEventListener('click', function() {
+            overlay.classList.remove('active');
+            saveAndRedirect(true);
+        });
+    }
+
+    const grid = document.getElementById('grid');
+    const boxesOpenedEl = document.getElementById('boxesOpened');
+    const potentialPtsEl = document.getElementById('potentialPts');
+    const btnCollect = document.getElementById('btnCollect');
+    const outcomeMsg = document.getElementById('outcomeMsg');
+
+    // Build grid
+    for (let i = 1; i <= NUM_BOXES; i++) {
+        const box = document.createElement('div');
+        box.className = 'box';
+        box.textContent = i;
+        box.addEventListener('click', function() {
+            if (finished || openedSet.has(i)) return;
+            openedSet.add(i);
+            boxesOpened++;
+
+            if (i === bombLocation) {
+                finished = true;
+                box.textContent = '\uD83D\uDCA3';
+                box.classList.add('bomb-revealed');
+                playBomb();
+                btnCollect.disabled = true;
+                document.querySelectorAll('.box').forEach(function(b) { b.classList.add('disabled'); });
+                boxesOpenedEl.textContent = boxesOpened;
+                potentialPtsEl.textContent = '0';
+                outcomeMsg.style.color = '#c0392b';
+                outcomeMsg.textContent = 'You hit the bomb! You earned 0 points.';
+                setTimeout(showBoomVideo, 800);
+            } else {
+                box.textContent = '\uD83E\uDE99';
+                box.classList.add('revealed');
+                playClick();
+                boxesOpenedEl.textContent = boxesOpened;
+                potentialPtsEl.textContent = boxesOpened * POINTS_PER_BOX;
+            }
+        });
+        grid.appendChild(box);
+    }
+
+    btnCollect.addEventListener('click', function() {
+        if (finished || boxesOpened === 0) return;
+        finished = true;
+        btnCollect.disabled = true;
+        document.querySelectorAll('.box').forEach(function(b) { b.classList.add('disabled'); });
+
+        // Reveal bomb
+        const bombBox = grid.children[bombLocation - 1];
+        if (!openedSet.has(bombLocation)) {
+            bombBox.textContent = '\uD83D\uDCA3';
+            bombBox.classList.add('bomb-revealed');
+        }
+
+        playSuccess();
+        const pts = boxesOpened * POINTS_PER_BOX;
+        outcomeMsg.style.color = '#27ae60';
+        outcomeMsg.textContent = 'You collected ' + pts + ' points!';
+        setTimeout(function() { saveAndRedirect(false); }, 1500);
+    });
+
+    document.getElementById('startBtn').addEventListener('click', function() {
+        document.getElementById('instructions').style.display = 'none';
+        document.getElementById('game').style.display = 'block';
+    });
+})();
+</script>
+</body>
+</html>
