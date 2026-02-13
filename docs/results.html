@@ -74,10 +74,10 @@
         html += '<tr><td><strong>Boxes Collected</strong></td><td>' + bret.boxesCollected + '</td></tr>';
         html += '<tr><td><strong>Bomb Location</strong></td><td>Box ' + bret.bombLocation + '</td></tr>';
         html += '<tr><td><strong>Outcome</strong></td><td class="' + (bret.bombHit ? 'popped' : 'collected') + '">' + (bret.bombHit ? 'Hit the bomb!' : 'Safe! Avoided the bomb.') + '</td></tr>';
-        html += '<tr><td><strong>Points Earned</strong></td><td style="font-size:20px;font-weight:bold;">' + bret.earnings + ' points</td></tr>';
+        html += '<tr><td><strong>Earnings</strong></td><td style="font-size:20px;font-weight:bold;">$' + bret.earnings.toFixed(2) + '</td></tr>';
         html += '</tbody></table>';
         if (!bret.bombHit) {
-            html += '<p style="color:#7f8c8d; margin-top:8px;">Each box was worth 10 points. ' + bret.boxesCollected + ' boxes &times; 10 = ' + bret.earnings + ' points.</p>';
+            html += '<p style="color:#7f8c8d; margin-top:8px;">Each box was worth $0.50. ' + bret.boxesCollected + ' boxes &times; $0.50 = $' + bret.earnings.toFixed(2) + '</p>';
         }
     }
 

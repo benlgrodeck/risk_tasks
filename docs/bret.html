@@ -80,7 +80,7 @@
             to { transform: translateX(3px) rotate(1deg); }
         }
         .video-overlay .video-wrapper {
-            max-width: 400px; width: 90%; aspect-ratio: 9/16;
+            max-width: 560px; width: 90%; aspect-ratio: 16/9;
             border-radius: 12px; overflow: hidden;
         }
         .video-overlay .video-wrapper iframe {
@@ -100,9 +100,9 @@
     <div id="instructions">
         <h1>Bomb Risk Elicitation Task</h1>
         <p>You will see a grid of <strong>25 boxes</strong> (5 x 5). One of these boxes contains a <strong>bomb</strong> — but you won't know which one!</p>
-        <p>Click on boxes to collect them. Each collected box is worth <strong>10 points</strong>.</p>
-        <p>However, if you click on the box that contains the bomb, you lose <strong>all</strong> of your collected points.</p>
-        <p>You can stop collecting at any time by pressing <strong>"Collect Points"</strong>. The bomb location will then be revealed.</p>
+        <p>Click on boxes to collect them. Each collected box is worth <strong>$0.50</strong>.</p>
+        <p>However, if you click on the box that contains the bomb, you lose <strong>all</strong> of your collected earnings.</p>
+        <p>You can stop collecting at any time by pressing <strong>"Collect $$$"</strong>. The bomb location will then be revealed.</p>
         <div class="tip-box"><strong>Strategy:</strong> The more boxes you open, the more points — but also more risk of hitting the bomb!</div>
         <button class="start-btn" id="startBtn">Start</button>
     </div>
@@ -112,10 +112,10 @@
         <h2 style="color:#2c3e50; margin-bottom: 8px;">Bomb Risk Elicitation Task</h2>
         <div class="stats-bar">
             <div class="stat"><div class="stat-value" id="boxesOpened">0</div><div class="stat-label">Boxes Opened</div></div>
-            <div class="stat"><div class="stat-value" id="potentialPts">0</div><div class="stat-label">Potential Points</div></div>
+            <div class="stat"><div class="stat-value" id="potentialPts">$0.00</div><div class="stat-label">Potential Earnings</div></div>
         </div>
         <div class="grid" id="grid"></div>
-        <button class="btn-collect-pts" id="btnCollect">Collect Points</button>
+        <button class="btn-collect-pts" id="btnCollect">Collect $$$</button>
         <div class="outcome-message" id="outcomeMsg"></div>
     </div>
 </div>
@@ -130,7 +130,7 @@
 <script>
 (function() {
     const NUM_BOXES = 25;
-    const POINTS_PER_BOX = 10;
+    const POINTS_PER_BOX = 0.50;
     const bombLocation = Math.floor(Math.random() * NUM_BOXES) + 1;
 
     let boxesOpened = 0;
@@ -144,22 +144,28 @@
         return audioCtx;
     }
     function playClick() {
-        // Mario coin sound: B5 then E6
+        // Mario coin sound: B5 short blip then E6 sustained ring
         try {
             const c = ctx();
             const t = c.currentTime;
+            // First note: B5 short
             const o1 = c.createOscillator();
+            const g1 = c.createGain();
+            o1.type = 'square';
+            o1.frequency.setValueAtTime(988, t);
+            g1.gain.setValueAtTime(0.18, t);
+            g1.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+            o1.connect(g1); g1.connect(c.destination);
+            o1.start(t); o1.stop(t + 0.08);
+            // Second note: E6 ring
             const o2 = c.createOscillator();
-            const g = c.createGain();
-            o1.connect(g); o2.connect(g); g.connect(c.destination);
-            o1.type = 'square'; o2.type = 'square';
-            g.gain.setValueAtTime(0.15, t);
-            g.gain.setValueAtTime(0.15, t + 0.07);
-            g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-            o1.frequency.setValueAtTime(988, t);  // B5
-            o1.start(t); o1.stop(t + 0.07);
-            o2.frequency.setValueAtTime(1319, t + 0.07);  // E6
-            o2.start(t + 0.07); o2.stop(t + 0.4);
+            const g2 = c.createGain();
+            o2.type = 'square';
+            o2.frequency.setValueAtTime(1319, t + 0.08);
+            g2.gain.setValueAtTime(0.18, t + 0.08);
+            g2.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+            o2.connect(g2); g2.connect(c.destination);
+            o2.start(t + 0.08); o2.stop(t + 0.5);
         } catch(e) {}
     }
     function playBomb() {
@@ -170,7 +176,7 @@
     }
 
     function saveAndRedirect(bombHit) {
-        const earnings = bombHit ? 0 : boxesOpened * POINTS_PER_BOX;
+        const earnings = bombHit ? 0 : parseFloat((boxesOpened * POINTS_PER_BOX).toFixed(2));
         sessionStorage.setItem('bretResults', JSON.stringify({
             boxesCollected: boxesOpened,
             bombLocation: bombLocation,
@@ -181,14 +187,10 @@
     }
 
     function showBoomVideo() {
-        const videos = [
-            '7420922312519601454',  // We Bring The BOOM Remix Part 1 (with Rizzler)
-            '7551550497992264974'   // Can We Get 5 BIG BOOMS
-        ];
-        const videoId = videos[Math.floor(Math.random() * videos.length)];
         const overlay = document.getElementById('videoOverlay');
         const wrapper = document.getElementById('videoWrapper');
-        wrapper.innerHTML = '<iframe src="https://www.tiktok.com/player/v1/' + videoId + '?autoplay=1&music_info=1&description=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+        // YouTube embed: first 12 seconds of "We Bring The Boom"
+        wrapper.innerHTML = '<iframe src="https://www.youtube.com/embed/btnZ-segFG0?autoplay=1&start=0&end=12" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
         setTimeout(function() { overlay.classList.add('active'); }, 400);
 
         document.getElementById('continueBtn').addEventListener('click', function() {
@@ -222,16 +224,16 @@
                 btnCollect.disabled = true;
                 document.querySelectorAll('.box').forEach(function(b) { b.classList.add('disabled'); });
                 boxesOpenedEl.textContent = boxesOpened;
-                potentialPtsEl.textContent = '0';
+                potentialPtsEl.textContent = '$0.00';
                 outcomeMsg.style.color = '#c0392b';
-                outcomeMsg.textContent = 'You hit the bomb! You earned 0 points.';
+                outcomeMsg.textContent = 'You hit the bomb! You earned $0.00.';
                 setTimeout(showBoomVideo, 800);
             } else {
                 box.textContent = '\uD83E\uDE99';
                 box.classList.add('revealed');
                 playClick();
                 boxesOpenedEl.textContent = boxesOpened;
-                potentialPtsEl.textContent = boxesOpened * POINTS_PER_BOX;
+                potentialPtsEl.textContent = '$' + (boxesOpened * POINTS_PER_BOX).toFixed(2);
             }
         });
         grid.appendChild(box);
@@ -253,7 +255,7 @@
         playSuccess();
         const pts = boxesOpened * POINTS_PER_BOX;
         outcomeMsg.style.color = '#27ae60';
-        outcomeMsg.textContent = 'You collected ' + pts + ' points!';
+        outcomeMsg.textContent = 'You collected $' + pts.toFixed(2) + '!';
         setTimeout(function() { saveAndRedirect(false); }, 1500);
     });
 
