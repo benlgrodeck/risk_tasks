@@ -79,7 +79,13 @@
             from { transform: translateX(-3px) rotate(-1deg); }
             to { transform: translateX(3px) rotate(1deg); }
         }
-        .video-overlay .tiktok-wrapper { max-width: 360px; width: 90%; }
+        .video-overlay .video-wrapper {
+            max-width: 400px; width: 90%; aspect-ratio: 9/16;
+            border-radius: 12px; overflow: hidden;
+        }
+        .video-overlay .video-wrapper iframe {
+            width: 100%; height: 100%; border: none;
+        }
         .video-overlay .continue-btn {
             margin-top: 24px; background: #c0392b; color: white; border: none;
             padding: 14px 40px; font-size: 16px; border-radius: 10px; cursor: pointer;
@@ -117,7 +123,7 @@
 <!-- Video overlay -->
 <div class="video-overlay" id="videoOverlay">
     <h2>WE BRING THE BOOM!</h2>
-    <div class="tiktok-wrapper" id="tiktokWrapper"></div>
+    <div class="video-wrapper" id="videoWrapper"></div>
     <button class="continue-btn" id="continueBtn">Continue</button>
 </div>
 
@@ -138,7 +144,23 @@
         return audioCtx;
     }
     function playClick() {
-        try { const c=ctx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.setValueAtTime(600,c.currentTime);g.gain.setValueAtTime(.15,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.08);o.start(c.currentTime);o.stop(c.currentTime+.08); } catch(e){}
+        // Mario coin sound: B5 then E6
+        try {
+            const c = ctx();
+            const t = c.currentTime;
+            const o1 = c.createOscillator();
+            const o2 = c.createOscillator();
+            const g = c.createGain();
+            o1.connect(g); o2.connect(g); g.connect(c.destination);
+            o1.type = 'square'; o2.type = 'square';
+            g.gain.setValueAtTime(0.15, t);
+            g.gain.setValueAtTime(0.15, t + 0.07);
+            g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+            o1.frequency.setValueAtTime(988, t);  // B5
+            o1.start(t); o1.stop(t + 0.07);
+            o2.frequency.setValueAtTime(1319, t + 0.07);  // E6
+            o2.start(t + 0.07); o2.stop(t + 0.4);
+        } catch(e) {}
     }
     function playBomb() {
         try { const c=ctx(),n=c.sampleRate*.5,b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,1.5);const s=c.createBufferSource();s.buffer=b;const g=c.createGain();g.gain.setValueAtTime(.5,c.currentTime);s.connect(g);g.connect(c.destination);s.start(); } catch(e){}
@@ -165,16 +187,13 @@
         ];
         const videoId = videos[Math.floor(Math.random() * videos.length)];
         const overlay = document.getElementById('videoOverlay');
-        const wrapper = document.getElementById('tiktokWrapper');
-        wrapper.innerHTML = '<blockquote class="tiktok-embed" cite="https://www.tiktok.com/@a.j.befumo/video/' + videoId + '" data-video-id="' + videoId + '" style="max-width:360px; min-width:300px;"><section></section></blockquote>';
-        var s = document.createElement('script');
-        s.src = 'https://www.tiktok.com/embed.js';
-        s.async = true;
-        document.body.appendChild(s);
+        const wrapper = document.getElementById('videoWrapper');
+        wrapper.innerHTML = '<iframe src="https://www.tiktok.com/player/v1/' + videoId + '?autoplay=1&music_info=1&description=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
         setTimeout(function() { overlay.classList.add('active'); }, 400);
 
         document.getElementById('continueBtn').addEventListener('click', function() {
             overlay.classList.remove('active');
+            wrapper.innerHTML = '';
             saveAndRedirect(true);
         });
     }
